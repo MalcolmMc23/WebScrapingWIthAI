@@ -8,14 +8,19 @@ async function run() {
     let browser;
 
     try {
+        // Create a string 'auth' that concatenates 'userName' and 'password' with a colon in between
         const auth = `${userName}:${password}`
+        // Connect to the browser using puppeteer and the WebSocket endpoint, passing in 'auth' for authentication
         browser = await puppeteer.connect({
             browserWSEndpoint: `wss://${auth}@brd.superproxy.io:9222`
         })
 
+        // Create a new page in the browser
         const page = await browser.newPage()
+        // Set the default navigation timeout for the page to 2 minutes
         page.setDefaultNavigationTimeout(2 * 60 * 1000)
 
+        // Navigate to the Amazon Holiday Deals page
         await page.goto(`https://www.amazon.com/gcx/Holiday-Deals/gfhz/events?categoryId=HOL-Deals&isLimitedTimeOffer=true&ref_=nav_cs_holdeals_1&scrollState=eyJpdGVtSW5kZXgiOjAsInNjcm9sbE9mZnNldCI6NjU1LjUzMTI1fQ%3D%3D&sectionManagerState=eyJzZWN0aW9uVHlwZUVuZEluZGV4Ijp7ImFtYWJvdCI6MH19`)
 
         // const selector = ".a-carousel"
@@ -31,7 +36,7 @@ async function run() {
 
         // console.log(text)
 
-
+        //* uncomment this after xmass
         // const products = await page.evaluate(() => {
         //     const items = [];
         //     const productElements = document.querySelectorAll('.dcl-product-wrapper');
@@ -47,65 +52,57 @@ async function run() {
         //     return items;
         // });
 
+        // Extract product details from the page
         const products = await page.evaluate(() => {
+            // Initialize an empty array to store the product details
             const items = [];
-            const productElements = document.querySelectorAll('figure[data-test="product"]'); // selector for each product
+            // Select all product elements on the page
+            const productElements = document.querySelectorAll('figure[data-test="product"]');
 
+            // Loop through each product element
             productElements.forEach((productElement) => {
-                const name = productElement.querySelector('span.hoLOMk.iJcgAl')?.innerText; // selector for the product name
-                const price = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.XmvAr')?.innerText; // selector for the price
-                const originalPrice = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.iTTucF')?.innerText; // selector for the original price
-                const discountElement = productElement.querySelector('div.sc-1ikvg6x-2.fNKBCr'); // selector for the discount
+                // Extract the product name
+                const name = productElement.querySelector('span.hoLOMk.iJcgAl')?.innerText;
+                // Extract the product price
+                const price = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.XmvAr')?.innerText;
+                // Extract the original price of the product
+                const originalPrice = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.iTTucF')?.innerText;
+                // Select the discount element
+                const discountElement = productElement.querySelector('div.sc-1ikvg6x-2.fNKBCr');
+                // Initialize discount as null
                 let discount = null;
 
+                // If a discount element exists
                 if (discountElement) {
+                    // Extract the discount text
                     const discountText = discountElement.textContent;
-                    const match = discountText.match(/(\d+)% off/); // regex to extract the discount percentage
+                    // Use regex to extract the discount percentage from the text
+                    const match = discountText.match(/(\d+)% off/);
+                    // If a match is found, set the discount
                     if (match) {
-                        discount = match[1] + '% off'; // gets the percentage
+                        discount = match[1] + '% off';
                     }
                 }
 
+                // If name, price, and discount exist, add the product details to the items array
                 if (name && price && discount) {
                     items.push({ name, price, originalPrice, discount });
                 }
             });
 
+            // Return the array of product details
             return items;
         });
 
-        //to be forbidden
+        // Log the array of product details
         console.log(products)
-
-
-        // const products = await page.evaluate(() => {
-        //     const items = [];
-        //     const productElements = document.querySelectorAll('.a-carousel-card');
-        //     productElements.forEach((productElement) => {
-        //         const name = productElement.querySelector('.p13n-sc-truncate-desktop-type2.p13n-sc-truncated')?.innerText;
-        //         const price = productElement.querySelector('._cDEzb_p13n-sc-price_3mJ9Z')?.innerText;
-        //         const url = productElement.querySelector('a.a-link-normal[href*="/dp/"]').href
-        //         if (name && price && url) {
-        //             items.push({ name, price, url });
-        //         }
-        //     });
-        //     return items;
-        // });
-
-        // //* this way of sorting was written by chatgpt
-        // // Define a function to parse the price from a string to a float
-        // const parsePrice = (priceStr) => {
-        //     return parseFloat(priceStr.replace(/[$,]/g, ''));
-        // };
-        // // Log the products sorted by price
-        // console.log(products.sort((a, b) => parsePrice(a.price) - parsePrice(b.price)));
-        // //* 
 
         return;
     } catch (error) {
         console.error("scrape failed", error);
     }
     finally {
+        // closes the browser
         await browser?.close();
     }
 }
