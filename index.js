@@ -9,14 +9,18 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
 let userName = process.env.USER_NAME
 let password = process.env.PASSWORD
 
+const userInterface = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+})
 
-async function runConversation() {
-
+userInterface.prompt() // creates a user input prompt 
+userInterface.on('line', async input => {
     const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo-1106",
         messages: [{
             "role": "user",
-            "content": "please scrape this website: https://sequoia.instructure.com/courses/51730/discussion_topics/180205?module_item_id=935933"
+            "content": input
         }],
 
         tools: [{
@@ -49,12 +53,10 @@ async function runConversation() {
             await scrape()
                 .then(results => console.log(results))
                 .catch(error => console.log(error))
-
+            userInterface.close()
         }
     }
-
-}
-runConversation()
+})
 
 
 
