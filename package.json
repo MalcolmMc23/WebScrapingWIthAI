@@ -20,6 +20,7 @@
   "homepage": "https://github.com/MalcolmMc23/WebScrapingWIthAI#readme",
   "dependencies": {
     "dotenv": "^16.3.1",
+    "openai": "^4.20.1",
     "puppeteer-core": "^21.5.2"
   }
 }

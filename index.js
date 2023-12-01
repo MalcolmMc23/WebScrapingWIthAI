@@ -1,10 +1,66 @@
 import puppeteer from 'puppeteer-core'
 import { config } from 'dotenv'
 config()
+import readline from "readline";
+import OpenAI from "openai";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
+
+
 let userName = process.env.USER_NAME
 let password = process.env.PASSWORD
 
-async function run() {
+
+async function runConversation() {
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-1106",
+        messages: [{
+            "role": "user",
+            "content": "please scrape this website: https://sequoia.instructure.com/courses/51730/discussion_topics/180205?module_item_id=935933"
+        }],
+
+        tools: [{
+            "type": "function",
+            "function": {
+                "name": "scrape", // Name of the function
+                "description": "opens a headless webrowser and scrapes the html of a website for data", // Description of the function
+                "parameters": { // Parameters of the function
+                    "type": "object",
+                    "properties": {
+                        "website": { // Parameter 1: website
+                            "type": "string",
+                            "description": "The website to scrape",
+                        },
+                    },
+                    "required": ["website"] // Required parameters
+                },
+            }
+
+        }],
+        tool_choice: "auto",  // Specify the tool choice strategy
+    })
+
+
+    let wantsToCallFunction = response.choices[0].finish_reason == "tool_calls"
+    if (wantsToCallFunction) {
+        if (response.choices[0].message.tool_calls[0].function.name == "scrape") {
+            let argumentObj = JSON.parse(response.choices[0].message.tool_calls[0].function.arguments);
+            console.log("arguemnt: " + argumentObj.website)
+            await scrape()
+                .then(results => console.log(results))
+                .catch(error => console.log(error))
+
+        }
+    }
+
+}
+runConversation()
+
+
+
+
+
+async function scrape() {
     let browser;
 
     try {
@@ -24,11 +80,6 @@ async function run() {
         await page.goto(`https://www.amazon.com/gcx/Holiday-Deals/gfhz/events?categoryId=HOL-Deals&isLimitedTimeOffer=true&ref_=nav_cs_holdeals_1&scrollState=eyJpdGVtSW5kZXgiOjAsInNjcm9sbE9mZnNldCI6NjU1LjUzMTI1fQ%3D%3D&sectionManagerState=eyJzZWN0aW9uVHlwZUVuZEluZGV4Ijp7ImFtYWJvdCI6MH19`)
 
         // const selector = ".a-carousel"
-
-        // // class=".sc-1koy58b-0 jChBdP"
-        // // sc-15wd500-0 hjMJzD
-
-        // // class="a-carousel"
         // await page.waitForSelector(selector)
         // const el = await page.$(selector)
 
@@ -107,4 +158,4 @@ async function run() {
     }
 }
 
-run()
+// scrape()
