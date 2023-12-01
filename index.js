@@ -4,6 +4,7 @@ config()
 import readline from "readline";
 import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
+import fs from 'fs'
 
 
 let userName = process.env.USER_NAME
@@ -14,6 +15,9 @@ const userInterface = readline.createInterface({
     output: process.stdout,
 })
 
+
+
+// please scrape https://github.com/MalcolmMc23/WebScrapingWIthAI
 userInterface.prompt() // creates a user input prompt 
 userInterface.on('line', async input => {
     const response = await openai.chat.completions.create({
@@ -35,6 +39,10 @@ userInterface.on('line', async input => {
                             "type": "string",
                             "description": "The website to scrape",
                         },
+                        "selector": {
+                            "type": "string",
+                            "description": "the selector that will be extracted from the website"
+                        }
                     },
                     "required": ["website"] // Required parameters
                 },
@@ -49,8 +57,9 @@ userInterface.on('line', async input => {
     if (wantsToCallFunction) {
         if (response.choices[0].message.tool_calls[0].function.name == "scrape") {
             let argumentObj = JSON.parse(response.choices[0].message.tool_calls[0].function.arguments);
-            console.log("arguemnt: " + argumentObj.website)
-            await scrape()
+            console.log("arguemnt 1: " + argumentObj.website)
+            console.log("arguemnt 2: " + argumentObj.selector)
+            await scrape(argumentObj.website, argumentObj.selector)
                 .then(results => console.log(results))
                 .catch(error => console.log(error))
             userInterface.close()
@@ -62,8 +71,9 @@ userInterface.on('line', async input => {
 
 
 
-async function scrape() {
+async function scrape(website, selector) {
     let browser;
+    let url = website
 
     try {
         // Create a string 'auth' that concatenates 'userName' and 'password' with a colon in between
@@ -79,15 +89,33 @@ async function scrape() {
         page.setDefaultNavigationTimeout(2 * 60 * 1000)
 
         // Navigate to the Amazon Holiday Deals page
-        await page.goto(`https://www.amazon.com/gcx/Holiday-Deals/gfhz/events?categoryId=HOL-Deals&isLimitedTimeOffer=true&ref_=nav_cs_holdeals_1&scrollState=eyJpdGVtSW5kZXgiOjAsInNjcm9sbE9mZnNldCI6NjU1LjUzMTI1fQ%3D%3D&sectionManagerState=eyJzZWN0aW9uVHlwZUVuZEluZGV4Ijp7ImFtYWJvdCI6MH19`)
+        // await page.goto(`https://www.amazon.com/gcx/Holiday-Deals/gfhz/events?categoryId=HOL-Deals&isLimitedTimeOffer=true&ref_=nav_cs_holdeals_1&scrollState=eyJpdGVtSW5kZXgiOjAsInNjcm9sbE9mZnNldCI6NjU1LjUzMTI1fQ%3D%3D&sectionManagerState=eyJzZWN0aW9uVHlwZUVuZEluZGV4Ijp7ImFtYWJvdCI6MH19`)
+        await page.goto(url)
 
-        // const selector = ".a-carousel"
-        // await page.waitForSelector(selector)
-        // const el = await page.$(selector)
+        // const selector = "body"
 
-        // const text = await el.evaluate(e => e.innerHTML)
+        await page.waitForSelector(selector)
+        const el = await page.$(selector)
+
+        const text = await el.evaluate(e => e.innerHTML)
 
         // console.log(text)
+        let filePath = 'text.txt'
+
+        fs.writeFile(filePath, '', (err) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            console.log('File has been cleared!');
+        });
+        fs.writeFile(filePath, text, 'utf8', (err) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            console.log('File has been written');
+        });
 
         //* uncomment this after xmass
         // const products = await page.evaluate(() => {
@@ -106,49 +134,49 @@ async function scrape() {
         // });
 
         // Extract product details from the page
-        const products = await page.evaluate(() => {
-            // Initialize an empty array to store the product details
-            const items = [];
-            // Select all product elements on the page
-            const productElements = document.querySelectorAll('figure[data-test="product"]');
+        // const products = await page.evaluate(() => {
+        //     // Initialize an empty array to store the product details
+        //     const items = [];
+        //     // Select all product elements on the page
+        //     const productElements = document.querySelectorAll('figure[data-test="product"]');
 
-            // Loop through each product element
-            productElements.forEach((productElement) => {
-                // Extract the product name
-                const name = productElement.querySelector('span.hoLOMk.iJcgAl')?.innerText;
-                // Extract the product price
-                const price = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.XmvAr')?.innerText;
-                // Extract the original price of the product
-                const originalPrice = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.iTTucF')?.innerText;
-                // Select the discount element
-                const discountElement = productElement.querySelector('div.sc-1ikvg6x-2.fNKBCr');
-                // Initialize discount as null
-                let discount = null;
+        //     // Loop through each product element
+        //     productElements.forEach((productElement) => {
+        //         // Extract the product name
+        //         const name = productElement.querySelector('span.hoLOMk.iJcgAl')?.innerText;
+        //         // Extract the product price
+        //         const price = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.XmvAr')?.innerText;
+        //         // Extract the original price of the product
+        //         const originalPrice = productElement.querySelector('div.sc-1c51cxx-5.fOZRzS span.iTTucF')?.innerText;
+        //         // Select the discount element
+        //         const discountElement = productElement.querySelector('div.sc-1ikvg6x-2.fNKBCr');
+        //         // Initialize discount as null
+        //         let discount = null;
 
-                // If a discount element exists
-                if (discountElement) {
-                    // Extract the discount text
-                    const discountText = discountElement.textContent;
-                    // Use regex to extract the discount percentage from the text
-                    const match = discountText.match(/(\d+)% off/);
-                    // If a match is found, set the discount
-                    if (match) {
-                        discount = match[1] + '% off';
-                    }
-                }
+        //         // If a discount element exists
+        //         if (discountElement) {
+        //             // Extract the discount text
+        //             const discountText = discountElement.textContent;
+        //             // Use regex to extract the discount percentage from the text
+        //             const match = discountText.match(/(\d+)% off/);
+        //             // If a match is found, set the discount
+        //             if (match) {
+        //                 discount = match[1] + '% off';
+        //             }
+        //         }
 
-                // If name, price, and discount exist, add the product details to the items array
-                if (name && price && discount) {
-                    items.push({ name, price, originalPrice, discount });
-                }
-            });
+        //         // If name, price, and discount exist, add the product details to the items array
+        //         if (name && price && discount) {
+        //             items.push({ name, price, originalPrice, discount });
+        //         }
+        //     });
 
-            // Return the array of product details
-            return items;
-        });
+        //     // Return the array of product details
+        //     return items;
+        // });
 
         // Log the array of product details
-        console.log(products)
+        // console.log(products)
 
         return;
     } catch (error) {
