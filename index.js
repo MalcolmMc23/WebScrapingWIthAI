@@ -3,12 +3,14 @@ import { config } from 'dotenv'
 config()
 import readline from "readline";
 import OpenAI from "openai";
-const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
 import fs from 'fs'
 
+const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
 
 let userName = process.env.USER_NAME
 let password = process.env.PASSWORD
+
+let gotHTML = false;
 
 const userInterface = readline.createInterface({
     input: process.stdin,
@@ -16,8 +18,9 @@ const userInterface = readline.createInterface({
 })
 
 
+// copy past text 
+// please scrape: https://www.litcharts.com/lit/salvage-the-bones/the-eighth-day-make-them-know with the selecor: .summary-text
 
-// please scrape https://github.com/MalcolmMc23/WebScrapingWIthAI
 userInterface.prompt() // creates a user input prompt 
 userInterface.on('line', async input => {
     const response = await openai.chat.completions.create({
@@ -60,12 +63,36 @@ userInterface.on('line', async input => {
             console.log("arguemnt 1: " + argumentObj.website)
             console.log("arguemnt 2: " + argumentObj.selector)
             await scrape(argumentObj.website, argumentObj.selector)
-                .then(results => console.log(results))
+                .then(results => {
+                    userInterface.prompt() // creates a user input prompt 
+                    userInterface.on('line', async input => {
+                        let text = results
+                        console.log("here")
+                        // fs.readFile('text.txt', 'utf8', (err, data) => {
+                        //     if (err) {
+                        //         console.error(err);
+                        //         return;
+                        //     }
+                        //     text = data
+                        // });
+                        const response = await openai.chat.completions.create({
+                            model: "gpt-3.5-turbo-1106",
+                            messages: [{
+                                "role": "user",
+                                "content": `using the following HTML ${input}.      ${text}`
+                            }]
+                        })
+                        console.log(response.choices[0].message)
+                        userInterface.close()
+                    })
+                })
                 .catch(error => console.log(error))
-            userInterface.close()
         }
     }
 })
+
+
+
 
 
 
@@ -100,16 +127,15 @@ async function scrape(website, selector) {
         const text = await el.evaluate(e => e.innerHTML)
 
         // console.log(text)
-        let filePath = 'text.txt'
 
-        fs.writeFile(filePath, '', (err) => {
+        fs.writeFile("text.txt", '', (err) => {
             if (err) {
                 console.error(err);
                 return;
             }
             console.log('File has been cleared!');
         });
-        fs.writeFile(filePath, text, 'utf8', (err) => {
+        fs.writeFile("text.txt", text, 'utf8', (err) => {
             if (err) {
                 console.error(err);
                 return;
@@ -178,7 +204,7 @@ async function scrape(website, selector) {
         // Log the array of product details
         // console.log(products)
 
-        return;
+        return text;
     } catch (error) {
         console.error("scrape failed", error);
     }
@@ -187,5 +213,9 @@ async function scrape(website, selector) {
         await browser?.close();
     }
 }
+
+
+
+
 
 // scrape()
