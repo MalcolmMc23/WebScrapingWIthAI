@@ -14,6 +14,8 @@ let userName = process.env.USER_NAME
 let password = process.env.PASSWORD
 
 let gotHTML = false;
+let html = ''
+
 
 const userInterface = readline.createInterface({
     input: process.stdin,
@@ -23,39 +25,52 @@ const userInterface = readline.createInterface({
 
 // copy past text 
 // please scrape: https://www.litcharts.com/lit/salvage-the-bones/the-eighth-day-make-them-know with the selecor: .summary-text
-userInterface.prompt() // creates a user input prompt 
-userInterface.on('line', async input => {
-    const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo-1106",
-        messages: [{
-            "role": "user",
-            "content": input
-        }],
+async function handleChat(input) {
+    let prompt
+    let response
+    if (html == '') {
+        prompt = input
+        response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo-1106",
+            messages: [{
+                "role": "user",
+                "content": prompt,
+            }],
 
-        tools: [{
-            "type": "function",
-            "function": {
-                "name": "scrape", // Name of the function
-                "description": "opens a headless webrowser and scrapes the html of a website for data", // Description of the function
-                "parameters": { // Parameters of the function
-                    "type": "object",
-                    "properties": {
-                        "website": { // Parameter 1: website
-                            "type": "string",
-                            "description": "The website to scrape",
+            tools: [{
+                "type": "function",
+                "function": {
+                    "name": "scrape", // Name of the function
+                    "description": "opens a headless webrowser and scrapes the html of a website for data", // Description of the function
+                    "parameters": { // Parameters of the function
+                        "type": "object",
+                        "properties": {
+                            "website": { // Parameter 1: website
+                                "type": "string",
+                                "description": "The website to scrape",
+                            },
+                            "selector": {
+                                "type": "string",
+                                "description": "the selector that will be extracted from the website"
+                            }
                         },
-                        "selector": {
-                            "type": "string",
-                            "description": "the selector that will be extracted from the website"
-                        }
                     },
-                    "required": ["website"] // Required parameters
-                },
-            }
+                }
 
-        }],
-        tool_choice: "auto",  // Specify the tool choice strategy
-    })
+            }],
+            tool_choice: "auto",  // Specify the tool choice strategy
+        });
+
+    } else {
+        prompt = `please use the following HTML. ${input}. ${html}`
+        response = await openai.chat.completions.create({
+            model: "gpt-4-1106-preview",
+            messages: [{
+                "role": "user",
+                "content": prompt,
+            }]
+        })
+    }
 
 
     let wantsToCallFunction = response.choices[0].finish_reason == "tool_calls"
@@ -68,31 +83,23 @@ userInterface.on('line', async input => {
                 .then(results => {
                     console.log("Got the HTML! What would you like to with it?")
                     userInterface.prompt() // creates a user input prompt 
-                    userInterface.on('line', async input => {
-                        let text = results
-                        // fs.readFile('text.txt', 'utf8', (err, data) => {
-                        //     if (err) {
-                        //         console.error(err);
-                        //         return;
-                        //     }
-                        //     text = data
-                        // });
-                        const response2 = await openai.chat.completions.create({
-                            model: "gpt-3.5-turbo-1106",
-                            messages: [{
-                                "role": "user",
-                                "content": `using the following HTML ${input}.      ${text}`
-                            }]
-                        })
-                        console.log(response2.choices[0].message)
-                        userInterface.close()
-                    })
                 })
                 .catch(error => console.log(error))
+        } else {
+            console.log("made it with no function call!")
+            console.log(response.choices[0].message.content);
+            // Prompting for new input
+            userInterface.prompt();
         }
     }
-})
 
+}
+
+// Initial prompt
+userInterface.prompt();
+userInterface.on('line', input => {
+    handleChat(input);
+});
 
 
 
@@ -126,7 +133,7 @@ async function scrape(website, selector) {
         await page.waitForSelector(selector)
         const el = await page.$(selector)
 
-        const text = await el.evaluate(e => e.innerHTML)
+        html = await el.evaluate(e => e.innerHTML)
 
         // console.log(text)
 
@@ -137,7 +144,7 @@ async function scrape(website, selector) {
             }
             console.log('File has been cleared!');
         });
-        fs.writeFile("text.txt", text, 'utf8', (err) => {
+        fs.writeFile("text.txt", html, 'utf8', (err) => {
             if (err) {
                 console.error(err);
                 return;
@@ -146,7 +153,7 @@ async function scrape(website, selector) {
         });
 
 
-        return text;
+        return html;
     } catch (error) {
         console.error("scrape failed", error);
     }
